@@ -1,0 +1,14 @@
+{
+  "name": "lbm-helpers",
+  "version": "1.0.2",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "longbm64",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "lbm-helpers": "^1.0.1"
+  }
+}
