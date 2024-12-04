@@ -1,6 +1,6 @@
 {
   "name": "lbm-helpers",
-  "version": "1.0.2",
+  "version": "1.0.21",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,6 +9,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "lbm-helpers": "^1.0.1"
+    "lbm-helpers": "^1.0.1",
+    "mime-types": "^2.1.35",
+    "sharp": "^0.33.5"
   }
 }
