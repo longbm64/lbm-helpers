@@ -32,10 +32,10 @@ const __ = {
         return date.getTime()
     },
     getNowDate: () => {
-        return convertTimeToDate(getTime())
+        return __.convertTimeToDate(__.getTime())
     },
     getNowDateTime: () => {
-        return convertTimeToDateTime(getTime())
+        return __.convertTimeToDateTime(__.getTime())
     },
     getCodeUniqueNumber: (length = 8) => {
         if (length < 1) {
@@ -49,6 +49,45 @@ const __ = {
             uniqueCode += randomDigit
         }
         return uniqueCode
+    },
+    getTotalDaysInMonth: (month) => {
+        let m = parseInt(month.split('-')[0])
+        let y = parseInt(month.split('-')[1])
+        let date = new Date(y, m, 0);
+        return date.getDate();
+    },
+    isValidDate: (s) => {
+        if (!s) {
+            return s
+        }
+        s = s.toString()
+        const regex_date = /^\d{2}\-\d{2}\-\d{4}$/;
+        if (regex_date.test(s)) {
+            // format dd-mm-yyyy
+            s = s.split('-').reverse().join('-')
+            const d = new Date(s);
+            const parts = s.split('-').map((p) => parseInt(p, 10));
+            return d.getDate() === parts[2] && d.getMonth() + 1 === parts[1] && d.getFullYear() === parts[0]
+        } else {
+            const regex_datetime = /^\d{2}\-\d{2}\-\d{4} \d{2}:\d{2}:\d{2}$/;
+            if (regex_datetime.test(s)) {
+                // format dd-mm-yyyy hh:mm:ss
+                let a = s.split(' ')
+                let date = a[0].split('-').reverse().join('-')
+                let hour = a[1]
+                const d = new Date(`${date} ${hour}`);
+                const parts_date = date.split('-').map((p) => parseInt(p, 10));
+                const parts_hour = hour.split(':').map((p) => parseInt(p, 10));
+                return d.getDate() === parts_date[2]
+                    && d.getMonth() + 1 === parts_date[1]
+                    && d.getFullYear() === parts_date[0]
+                    && parts_hour[0] === d.getHours()
+                    && parts_hour[1] === d.getMinutes()
+                    && parts_hour[2] === d.getSeconds()
+            } else {
+                return false
+            }
+        }
     },
     removeVietnameseAccents: (str) => {
         return str
@@ -71,13 +110,13 @@ const __ = {
     formatMoneyVietnam: (amount) => {
         return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     },
-    formatStringSearch: (str) => {
+    removeFormatMoneyVietnam: (formattedAmount) => {
+        return formattedAmount.replace(/,/g, '')
+    },
+    formatStrSearch: (str) => {
         str = __.removeVietnameseAccents(str).toLowerCase()
         str = str.replace(/ /g, '')
         return str
-    },
-    removeFormatMoneyVietnam: (formattedAmount) => {
-        return formattedAmount.replace(/,/g, '')
     },
     convertNumberToVietnameseWords: (nnn) => {
         var ChuSo = new Array(" không ", " một ", " hai ", " ba ", " bốn ", " năm ", " sáu ", " bảy ", " tám ", " chín ")
@@ -220,6 +259,7 @@ const __ = {
 
     },
     convertBase64ToImage: async (base64String, outputFilePath) => {
+        const sharp = require('sharp')
         const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
             throw new Error('Invalid Base64 string');
@@ -251,17 +291,10 @@ const __ = {
     },
     fileDBInit: async (filePath) => {
         const fs = require('fs')
-        // Function to check if file exists, and create it if not
         if (fs.existsSync(filePath)) {
-            console.log('File already exists.');
+            return 'File already exists.'
         } else {
-            fs.writeFile(filePath, JSON.stringify({ "items": [] }), 'utf8', (err) => {
-                if (err) {
-                    console.error('Error writing to file:', err);
-                    return;
-                }
-                console.log('File created successfully');
-            });
+            return fs.writeFileSync(filePath, JSON.stringify({ "items": [] }), 'utf8')
         }
     },
     fileDBRead: async (filePath) => {
@@ -309,55 +342,28 @@ const __ = {
         });
         return data;
     },
-    isValidDate: (s) => {
-        if (!s) {
-            return s
-        }
-        s = s.toString()
-        const regex_date = /^\d{2}\-\d{2}\-\d{4}$/;
-        if (regex_date.test(s)) {
-            // format dd-mm-yyyy
-            s = s.split('-').reverse().join('-')
-            const d = new Date(s);
-            const parts = s.split('-').map((p) => parseInt(p, 10));
-            return d.getDate() === parts[2] && d.getMonth() + 1 === parts[1] && d.getFullYear() === parts[0]
+    convertMongooseObjectToJson: (objStr) => {
+        objStr = JSON.stringify(objStr)
+        return JSON.parse(objStr)
+    },
+    getFirstLastDayInMonth: (month) => {
+        const first = `01-${month} 00:00:00`
+        const totalDay = __.getTotalDaysInMonth(month)
+        console.log(totalDay)
+        const last = `${totalDay}-${month} 23:59:59`
+        return { first, last }
+    },
+    datetimeToTimeCondition: (datetime, type) => {
+        if (__.isValidDate(datetime)) {
+            return __.convertDateTimeToTime(datetime)
         } else {
-            const regex_datetime = /^\d{2}\-\d{2}\-\d{4} \d{2}:\d{2}:\d{2}$/;
-            if (regex_datetime.test(s)) {
-                // format dd-mm-yyyy hh:mm:ss
-                let a = s.split(' ')
-                let date = a[0].split('-').reverse().join('-')
-                let hour = a[1]
-                const d = new Date(`${date} ${hour}`);
-                const parts_date = date.split('-').map((p) => parseInt(p, 10));
-                const parts_hour = hour.split(':').map((p) => parseInt(p, 10));
-                return d.getDate() === parts_date[2]
-                    && d.getMonth() + 1 === parts_date[1]
-                    && d.getFullYear() === parts_date[0]
-                    && parts_hour[0] === d.getHours()
-                    && parts_hour[1] === d.getMinutes()
-                    && parts_hour[2] === d.getSeconds()
-            } else {
-                return false
-            }
+            return `Wrong format, correct is dd-mm-yyyy hh:ii:ss`
         }
     },
 }
-///test
-// const filePath = './db.json'
-// __.fileDBAddItem(filePath, { name: '12', age: '124' })
-
-const a = async () => {
-    // console.log(await __.fileDBFindItem(filePath, { code: '62984686' }))
-    const base64 = await __.convertImageToBase64('./imagetest.jpg')
-}
-
-a()
 
 
-// Example usage: 
-console.log(__.isValidDate('04-12-2024')); // Should return true 
-console.log(__.isValidDate('04-12-2024 09:44:00')); // Should return true 
-console.log(__.isValidDate('31/02/2024')); // Should return false (invalid date) 
-console.log(__.isValidDate('04-12-2024 24:00:00')); // Should return false (invalid time)
+console.log(__.getFirstLastDayInMonth('12-2024'))
+console.log(__.datetimeToTimeCondition('01-12-2024 00:00:00'))
+console.log(__.datetimeToTimeCondition('01-12-2024 23:59:59'))
 

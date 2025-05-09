@@ -2,6 +2,13 @@ const __ = {
     getTime: () => {
         return new Date().getTime()
     },
+    convertTimeToMonth: (time) => {
+        const date = new Date(time)
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${month}-${year}`
+    },
     convertTimeToDate: (time) => {
         const date = new Date(time)
         const day = String(date.getDate()).padStart(2, '0')
@@ -37,18 +44,34 @@ const __ = {
     getNowDateTime: () => {
         return __.convertTimeToDateTime(__.getTime())
     },
-    getCodeUniqueNumber: (length = 8) => {
-        if (length < 1) {
-            throw new Error('Length must be at least 1')
+    getNowMonth: () => {
+        return __.convertTimeToMonth(__.getTime())
+    },
+    getTotalDaysInMonth: (month) => {
+        let m = parseInt(month.split('-')[0])
+        let y = parseInt(month.split('-')[1])
+        let date = new Date(y, m, 0);
+        return date.getDate();
+    },
+    getFirstLastDaysInMonth: (month) => {
+        const first = `01-${month} 00:00:00`
+        const totalDays = __.getTotalDaysInMonth(month)
+        const last = `${totalDays}-${month} 23:59:59`
+        return { firstDateTime: first, lastDateTime: last, firstDate: first.split(' ')[0], lastDate: last.split(' ')[0] }
+    },
+    convertDateStartToTimeQuery: (date) => {
+        if (__.isValidDate(date)) {
+            return __.convertDateTimeToTime(date + ' 00:00:00')
+        } else {
+            return `Wrong format, correct is dd-mm-yyyy`
         }
-        let uniqueCode = ''
-        const firstDigit = Math.floor(Math.random() * 9) + 1
-        uniqueCode += firstDigit
-        for (let i = 1; i < length; i++) {
-            const randomDigit = Math.floor(Math.random() * 10)
-            uniqueCode += randomDigit
+    },
+    convertDateEndToTimeQuery: (date) => {
+        if (__.isValidDate(date)) {
+            return __.convertDateTimeToTime(date + ' 23:59:59')
+        } else {
+            return `Wrong format, correct is dd-mm-yyyy`
         }
-        return uniqueCode
     },
     isValidDate: (s) => {
         if (!s) {
@@ -83,8 +106,24 @@ const __ = {
             }
         }
     },
+    getUniqueCode: (length = 8) => {
+        if (length < 1) {
+            throw new Error('Length must be at least 1')
+        }
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        let uniqueCode = ''
+        // Ensure first character is a letter
+        uniqueCode += characters.charAt(Math.floor(Math.random() * 26))
+        // Generate remaining characters
+        for (let i = 1; i < length; i++) {
+            const randomIndex = Math.floor(Math.random() * characters.length)
+            uniqueCode += characters.charAt(randomIndex)
+        }
+        return uniqueCode
+    },
     removeVietnameseAccents: (str) => {
         return str
+            .toString()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/đ/g, 'd')
@@ -101,15 +140,32 @@ const __ = {
     removeFormatPhoneNumber: (phoneNumber) => {
         return phoneNumber.replace(/\D/g, '')
     },
-    formatMoneyVietnam: (amount) => {
+    formatMoneyVietNam: (amount) => {
         return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     },
-    removeFormatMoneyVietnam: (formattedAmount) => {
-        return formattedAmount.replace(/,/g, '')
+    removeFormatMoneyVietNam: (money) => {
+        money = money.toString()
+        money = parseInt(money.replace(/\D/g, ''))
+        return isNaN(money) ? 0 : money
     },
     formatStrSearch: (str) => {
         str = __.removeVietnameseAccents(str).toLowerCase()
-        str = str.replace(/ /g, '')
+        str = str
+            .replace(/ /g, '')
+            .replace(/ /g, '')
+            .replace(/,/g, '')
+            .replace(/-/g, '')
+            .replace(/_/g, '')
+            .replace(/\./g, '')
+            .replace(/"/g, '')
+            .replace(/'/g, '')
+            .replace(/\`/g, '')
+            .replace(/\(/g, '')
+            .replace(/\)/g, '')
+            .replace(/\{/g, '')
+            .replace(/\}/g, '')
+            .replace(/\[/g, '')
+            .replace(/\]/g, '')
         return str
     },
     convertNumberToVietnameseWords: (nnn) => {
@@ -283,6 +339,66 @@ const __ = {
             return `Error writing file: ${err.message}`
         }
     },
+    convertMongooseObjectToJson: (objStr) => {
+        objStr = JSON.stringify(objStr)
+        return JSON.parse(objStr)
+    },
+    getPagination: (data, query) => {
+        if (query.limit && query.page) {
+            query.limit = parseInt(query.limit)
+            query.limit = isNaN(query.limit) ? 0 : query.limit
+            query.page = parseInt(query.page)
+            query.page = isNaN(query.page) ? 0 : query.page
+
+            query.total_item = data.length
+
+            query.total_page = Math.ceil(query.total_item / query.limit)
+            query.total_page = isNaN(query.total_page) ? 0 : query.total_page
+
+            if (query.page <= 0 || query.page > query.total_page) {
+                return {
+                    code: 406,
+                    status: 'error',
+                    message: 'Số trang (Page) không hợp lệ',
+                    data: [],
+                    pagination: {
+                        limit: query.limit ?? 0,
+                        page: query.page ?? 0,
+                        total_item: query.total_item ?? 0,
+                        total_page: query.total_page ?? 0,
+                    },
+                }
+            }
+            const _ = require('lodash')
+            let array = _.chunk(data, query.limit === 0 ? data.length : query.limit);
+            return {
+                data: array[query.page - 1] ?? [],
+                pagination: {
+                    limit: query.limit ?? 0,
+                    page: query.page ?? 0,
+                    total_item: query.total_item ?? 0,
+                    total_page: query.total_page ?? 0,
+                },
+            }
+        } else {
+            return {
+                data: data,
+                pagination: {
+                    limit: 0,
+                    page: 0,
+                    total_item: 0,
+                    total_page: 0,
+                },
+            }
+        }
+    },
+
+
+
+
+
+
+    //xem xét viết lại phần này
     fileDBInit: async (filePath) => {
         const fs = require('fs')
         if (fs.existsSync(filePath)) {
@@ -297,7 +413,7 @@ const __ = {
         data = JSON.parse(data)
         return data
     },
-    fileDBAddItem: async (filePath, item = { code: __.getCodeUniqueNumber() }) => {
+    fileDBAddItem: async (filePath, item = { code: __.getUniqueCode() }) => {
         __.fileDBInit(filePath)
         const fs = require('fs')
         let data = await __.fileDBRead(filePath)
@@ -336,6 +452,8 @@ const __ = {
         });
         return data;
     }
+    //xem xét viết lại phần này
+
 }
 
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
